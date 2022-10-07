@@ -1,21 +1,35 @@
 // Require classes
 const { Client, GatewayIntentBits } = require('discord.js');
-const Rcon = require('srcds-rcon');
+const Rcon = require('mbr-rcon');
 const Helper = require('./module/helper.js');
 require('dotenv').config();
 
 //Load env
 const token = process.env.DISCORD_TOKEN;
 const server_host = process.env.SRCDS_HOST;
+const server_port = process.env.SRCDS_PORT;
 const server_pw = process.env.SRCDS_PW;
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 //Create server instance
-const server = Rcon({address: server_host, password: server_pw});
+const server = new Rcon({
+	host: server_host,
+	port: server_port,
+	pass: server_pw,
+	onClose: console.log("Server connection closed")
+});
 
-// When the client is ready, run this code (only once)
+//Connect to the server and authenticate
+const conn = server.connect({
+	onSuccess: console.log("Connected to server."),
+	onError: (error) => {console.log("Connection error: " + error)}
+}).auth({
+	onSuccess: console.log("Server authenticated"),
+	onError: (error) => {console.log("Authentication error: " + error)}
+});
+
 client.once('ready', () => {
 	console.log('Discord bot ready!');
 	getServerStatus();
@@ -23,17 +37,16 @@ client.once('ready', () => {
 
 client.login(token);
 
-async function getServerStatus() {
-	try {
-		await server.connect();
-		let status = await server.command('status');
-		const playercount = Helper.parseStatus(status);
-		const map = Helper.parseMap(status);
-		await server.disconnect();
-		Helper.setBotPresence(client,playercount.humans,playercount.bots,playercount.max,map.map);
+function getServerStatus() {
+	conn.send('status',
+	{
+		onSuccess: (response) => setServerStatus(response)
+	});
+	setTimeout(getServerStatus, 1000*10);
+}
 
-	} catch(error) {
-		console.error(error)
-	}
-	setTimeout(getServerStatus, 1000*60);
+function setServerStatus(status) {
+	const playercount = Helper.parseStatus(status);
+	const map = Helper.parseMap(status);
+	Helper.setBotPresence(client,playercount.humans,playercount.bots,playercount.max,map.map);
 }
