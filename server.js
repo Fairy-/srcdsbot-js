@@ -1,6 +1,7 @@
 // Require classes
 const { Client, GatewayIntentBits } = require('discord.js');
 const Rcon = require('mbr-rcon');
+const { sendServerCommand } = require('./module/helper.js');
 const Helper = require('./module/helper.js');
 require('dotenv').config();
 
@@ -21,15 +22,6 @@ const server = new Rcon({
 	onClose: console.log("Server connection closed")
 });
 
-//Connect to the server and authenticate
-const conn = server.connect({
-	onSuccess: console.log("Connected to server."),
-	onError: (error) => {console.log("Connection error: " + error)}
-}).auth({
-	onSuccess: console.log("Server authenticated"),
-	onError: (error) => {console.log("Authentication error: " + error)}
-});
-
 client.once('ready', () => {
 	console.log('Discord bot ready!');
 	getServerStatus();
@@ -37,11 +29,10 @@ client.once('ready', () => {
 
 client.login(token);
 
+
+//Presence updating logic
 function getServerStatus() {
-	conn.send('status',
-	{
-		onSuccess: (response) => setServerStatus(response)
-	});
+	sendServerCommand(server, 'status', setServerStatus)
 	setTimeout(getServerStatus, 1000*10);
 }
 
